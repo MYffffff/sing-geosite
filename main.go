@@ -49,7 +49,7 @@ func fetch(from string) (*github.RepositoryRelease, error) {
 	return latestRelease, err
 }
 
-// Download from url func
+// Download from url func helper
 func get(downloadURL *string) ([]byte, error) {
 	log.Info("download ", *downloadURL)
 	response, err := http.Get(*downloadURL)
@@ -85,6 +85,15 @@ func download(release *github.RepositoryRelease) ([]byte, error) {
 	checksum := sha256.Sum256(data)
 	if hex.EncodeToString(checksum[:]) != string(remoteChecksum[:64]) {
 		return nil, E.New("checksum mismatch")
+	}
+	return data, nil
+}
+
+// Open existing .dat file
+func open(inputPath string) ([]byte, error) {
+	data, err := os.ReadFile(inputPath)
+	if err != nil {
+		return nil, err
 	}
 	return data, nil
 }
@@ -243,10 +252,21 @@ func filterTags(data map[string][]geosite.Item) {
 	os.Stderr.WriteString("merged " + strings.Join(mergedCodeMap, ",") + "\n")
 }
 
-func generate(release *github.RepositoryRelease, output string, ruleSetOutput string) error {
-	vData, err := download(release)
-	if err != nil {
-		return err
+func generate(release *github.RepositoryRelease, input string, output string, ruleSetOutput string) error {
+	var (
+		vData []byte
+		err   error
+	)
+	if len(input) != 0 {
+		vData, err = open(input)
+		if err != nil {
+			return err
+		}
+	} else {
+		vData, err = download(release)
+		if err != nil {
+			return err
+		}
 	}
 	domainMap, err := parse(vData)
 	if err != nil {
@@ -306,12 +326,12 @@ func generate(release *github.RepositoryRelease, output string, ruleSetOutput st
 	return nil
 }
 
-func release(source string, output string, ruleSetOutput string) error {
+func release(source string, input string, output string, ruleSetOutput string) error {
 	sourceRelease, err := fetch(source)
 	if err != nil {
 		return err
 	}
-	err = generate(sourceRelease, output, ruleSetOutput)
+	err = generate(sourceRelease, input, output, ruleSetOutput)
 	if err != nil {
 		return err
 	}
@@ -321,11 +341,13 @@ func release(source string, output string, ruleSetOutput string) error {
 func main() {
 	source := flag.String("source", "MYffffff/domain-list-ru", "source")
 	geoOut := flag.String("geofile", "geosite.db", "geoOut")
+	geoInput := flag.String("inputfile", "", "geoInput")
 	ruleSetOutput := flag.String("srsdir", "sing-site", "ruleSetOutput")
 	flag.Parse()
 
 	err := release(
 		*source,
+		*geoInput,
 		*geoOut,
 		*ruleSetOutput,
 	)
