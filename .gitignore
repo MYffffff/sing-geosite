@@ -1,5 +1,5 @@
 /.idea/
 /vendor/
 **.db
-/rule-set/
-/rule-set-unstable/
+/sing-site/
+.vscode
